@@ -679,11 +679,16 @@
   .project-title-wrap{
     position: relative;
     display: inline-block;
+    min-width: 0;
+    overflow: hidden;
     cursor: var(--reg-cursor);
   }
 
   .project-title-wrap h2{
     margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
     transition: color 0.2s ease;
   }
 
