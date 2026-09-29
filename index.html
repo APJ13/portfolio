@@ -2355,10 +2355,17 @@
     const titleWrap = document.getElementById('projectTitleWrap');
     const pageEl = projectPage;
     if(titleWrap){
-      titleWrap.addEventListener('mouseenter', () => pageEl.classList.add('info-active'));
-      titleWrap.addEventListener('mouseleave', () => pageEl.classList.remove('info-active'));
-      titleWrap.addEventListener('focus', () => pageEl.classList.add('info-active'));
-      titleWrap.addEventListener('blur', () => pageEl.classList.remove('info-active'));
+      // Touch devices simulate mouseenter on tap but never fire the matching mouseleave
+      // (there's no cursor to "leave" once the finger lifts), which left info-active stuck
+      // on forever after the first tap -- masking whatever the pin-toggle below did and
+      // making the panel look permanently open. Hover preview is desktop-only; touch gets
+      // the plain tap-to-pin toggle by itself.
+      if(window.matchMedia('(hover: hover) and (pointer: fine)').matches){
+        titleWrap.addEventListener('mouseenter', () => pageEl.classList.add('info-active'));
+        titleWrap.addEventListener('mouseleave', () => pageEl.classList.remove('info-active'));
+        titleWrap.addEventListener('focus', () => pageEl.classList.add('info-active'));
+        titleWrap.addEventListener('blur', () => pageEl.classList.remove('info-active'));
+      }
       titleWrap.addEventListener('click', () => pageEl.classList.toggle('info-pinned'));
     }
 
