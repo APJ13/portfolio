@@ -1,0 +1,4 @@
+# Alexanderpatersonjones.com is a secondary domain that forwards to the primary
+# site at apj.studio -- covers the bare domain, www, and every path/query.
+https://alexanderpatersonjones.com/*  https://apj.studio/:splat  301!
+https://www.alexanderpatersonjones.com/*  https://apj.studio/:splat  301!
