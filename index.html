@@ -135,7 +135,9 @@
     color: var(--ink-dim);
   }
 
-  a.footer-credit:hover{ color: var(--power-orange); }
+  @media (hover: hover) and (pointer: fine){
+    a.footer-credit:hover{ color: var(--power-orange); }
+  }
   a.footer-credit.active{ color: var(--power-orange); }
 
   .brand{
@@ -351,7 +353,9 @@
     transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
-  .tile:hover .tile-label{ transform: translateX(0); }
+  @media (hover: hover) and (pointer: fine){
+    .tile:hover .tile-label{ transform: translateX(0); }
+  }
 
   .tile-label .title{
     font-family: 'IBM Plex Mono', monospace;
@@ -672,8 +676,10 @@
     .project-back{ width: 32px; }
   }
 
-  .project-back:hover{
-    color: var(--power-orange);
+  @media (hover: hover) and (pointer: fine){
+    .project-back:hover{
+      color: var(--power-orange);
+    }
   }
 
   .project-title-wrap{
@@ -748,7 +754,9 @@
     text-underline-offset: 2px;
   }
 
-  .project-info-panel .info-ig-link:hover{ color: var(--power-orange); }
+  @media (hover: hover) and (pointer: fine){
+    .project-info-panel .info-ig-link:hover{ color: var(--power-orange); }
+  }
 
   .info-inner{
     max-width: 260px; /* narrowed further once JS knows the first frame's width and the panel's own width */
@@ -900,7 +908,9 @@
 
   .about .contact-link + .contact-link{ margin-top: 6px; }
 
-  .about .contact-link:hover{ color: var(--power-orange); }
+  @media (hover: hover) and (pointer: fine){
+    .about .contact-link:hover{ color: var(--power-orange); }
+  }
 
   /* ---------- Index page ---------- */
 
@@ -998,7 +1008,9 @@
     transform: translate(0, -50%);
   }
 
-  .index-row:hover .index-title{ color: var(--power-orange); }
+  @media (hover: hover) and (pointer: fine){
+    .index-row:hover .index-title{ color: var(--power-orange); }
+  }
 
   .index-thumb{
     position: fixed;
@@ -1085,7 +1097,9 @@
     transition: color 0.2s ease;
   }
 
-  .video-modal-close:hover{ color: var(--power-orange); }
+  @media (hover: hover) and (pointer: fine){
+    .video-modal-close:hover{ color: var(--power-orange); }
+  }
 
 </style>
 </head>
@@ -2466,6 +2480,11 @@
 
     const THUMB_MAX_W = 280;
     const THUMB_MAX_H = 360;
+    // Touch fires a synthetic mouseenter on tap but never the matching mouseleave, which
+    // would leave this floating preview stuck on screen after tapping a row (most visible
+    // on the hidden video rows, which open a modal instead of navigating away). Hover
+    // preview is desktop-only; touch has no equivalent, same as the project title fix.
+    const supportsHover = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
 
     sorted.forEach(item => {
       const style = catStyle[item.category] || { bg: '#171613' };
@@ -2486,37 +2505,39 @@
         </span>
       `;
 
-      row.addEventListener('mouseenter', () => {
-        const ratio = getRatio(item);
-        let w = THUMB_MAX_W, h = THUMB_MAX_W / ratio;
-        if(h > THUMB_MAX_H){ h = THUMB_MAX_H; w = THUMB_MAX_H * ratio; }
+      if(supportsHover){
+        row.addEventListener('mouseenter', () => {
+          const ratio = getRatio(item);
+          let w = THUMB_MAX_W, h = THUMB_MAX_W / ratio;
+          if(h > THUMB_MAX_H){ h = THUMB_MAX_H; w = THUMB_MAX_H * ratio; }
 
-        const rect = wrapEl.getBoundingClientRect();
-        const left = rect.left + Math.random() * Math.max(0, rect.width - w);
-        const top = rect.top + Math.random() * Math.max(0, rect.height - h);
+          const rect = wrapEl.getBoundingClientRect();
+          const left = rect.left + Math.random() * Math.max(0, rect.width - w);
+          const top = rect.top + Math.random() * Math.max(0, rect.height - h);
 
-        // An <img> can't play a video file (that's what was breaking Poet's Row) --
-        // use whichever thumbnail element actually matches this item's file type.
-        const video = isVideoSrc(item.img);
-        const activeEl = video ? thumbVideo : thumbImg;
-        const inactiveEl = video ? thumbImg : thumbVideo;
+          // An <img> can't play a video file (that's what was breaking Poet's Row) --
+          // use whichever thumbnail element actually matches this item's file type.
+          const video = isVideoSrc(item.img);
+          const activeEl = video ? thumbVideo : thumbImg;
+          const inactiveEl = video ? thumbImg : thumbVideo;
 
-        inactiveEl.classList.remove('visible');
-        if(inactiveEl.tagName === 'VIDEO') inactiveEl.pause();
+          inactiveEl.classList.remove('visible');
+          if(inactiveEl.tagName === 'VIDEO') inactiveEl.pause();
 
-        activeEl.style.width = w + 'px';
-        activeEl.style.height = h + 'px';
-        activeEl.style.left = left + 'px';
-        activeEl.style.top = top + 'px';
-        if(activeEl.getAttribute('src') !== item.img) activeEl.src = item.img;
-        if(video) activeEl.play().catch(() => {});
-        activeEl.classList.add('visible');
-      });
-      row.addEventListener('mouseleave', () => {
-        thumbImg.classList.remove('visible');
-        thumbVideo.classList.remove('visible');
-        thumbVideo.pause();
-      });
+          activeEl.style.width = w + 'px';
+          activeEl.style.height = h + 'px';
+          activeEl.style.left = left + 'px';
+          activeEl.style.top = top + 'px';
+          if(activeEl.getAttribute('src') !== item.img) activeEl.src = item.img;
+          if(video) activeEl.play().catch(() => {});
+          activeEl.classList.add('visible');
+        });
+        row.addEventListener('mouseleave', () => {
+          thumbImg.classList.remove('visible');
+          thumbVideo.classList.remove('visible');
+          thumbVideo.pause();
+        });
+      }
 
       listEl.appendChild(row);
     });
@@ -2950,13 +2971,13 @@
     const supportsHover = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
     if(!supportsHover){
       // No hover on touch, so there's no way to trigger the reveal manually -- cycle it
-      // automatically instead: expand, hold, collapse, hold, repeat, every 2 seconds.
+      // automatically instead: expand, hold, collapse, hold, repeat, every 4 seconds.
       let expanded = false;
       setInterval(() => {
         if(locked) return;
         expanded = !expanded;
         if(expanded) typeIn(); else typeOut();
-      }, 2000);
+      }, 4000);
     } else {
       link.addEventListener('mouseenter', typeIn);
       link.addEventListener('mouseleave', typeOut);
