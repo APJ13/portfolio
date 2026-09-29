@@ -1806,10 +1806,12 @@
   // scaled down together on mobile instead of just shrinking the gaps in isolation.
   const IS_MOBILE = window.innerWidth <= 640;
   const CELL = IS_MOBILE ? 68 : 120;    // matches the visual grid tile size so tiles land flush on grid marks
-  const GUTTER = IS_MOBILE ? 30 : 48;
+  const GUTTER = IS_MOBILE ? 38 : 48;
   const MARGIN = IS_MOBILE ? 70 : 110;  // breathing room around the whole canvas -- also becomes the gap at each infinite-scroll seam, so kept modest
-  const TILE_SCALE_MIN = 0.84;
-  const TILE_SCALE_MAX = 1.19;
+  // Mobile's tighter gutter leaves much less room to grow into than desktop's, so a
+  // same-size scale-up there was overlapping neighboring tiles -- keep the effect subtler.
+  const TILE_SCALE_MIN = IS_MOBILE ? 0.92 : 0.84;
+  const TILE_SCALE_MAX = IS_MOBILE ? 1.08 : 1.19;
   const BASE_AREA = IS_MOBILE ? 76000 : 130000; // target on-screen area (px^2) for a 'md' tile, before ratio is applied
   const SIZE_MULT = { sm: 0.6, md: 1, lg: 1.75 };
 
