@@ -8,7 +8,7 @@
 <meta property="og:type" content="website">
 <meta property="og:title" content="Alexander Paterson-Jones — Design Portfolio">
 <meta property="og:description" content="Portfolio of Alexander Paterson-Jones, a designer and photographer working across identity, print, self-published editions, and photography.">
-<link rel="canonical" href="https://apj.studio/">
+<link rel="canonical" href="https://alexanderpatersonjones.com/">
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -22,7 +22,7 @@
     "Alex Patterson"
   ],
   "jobTitle": "Designer & Photographer",
-  "url": "https://apj.studio/",
+  "url": "https://alexanderpatersonjones.com/",
   "email": "mailto:alexanderpatersonjones@gmail.com",
   "sameAs": ["https://www.instagram.com/zxnd.r/"]
 }
@@ -417,7 +417,25 @@
     display: block;
     width: 100%;
     height: 5px;
+    transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+                opacity 0.35s ease,
+                background-color 0.35s ease;
   }
+
+  .menu-bar:nth-child(1){ background: #171613; }
+  .menu-bar:nth-child(2){ background: #4B4A46; }
+  .menu-bar:nth-child(3){ background: #767268; }
+  .menu-bar:nth-child(4){ background: #C9C6BC; }
+
+  /* Open state: the top bar slides down one step and is the ONLY bar left visible at rest,
+     so the result is guaranteed to be exactly its own 5px thickness -- the three bars
+     underneath slide up toward it too, but fade out along the way, reading as sliding "into"
+     the top bar rather than stacking on top of it (four bars landing pixel-exactly on the same
+     spot would otherwise blur/thicken from sub-pixel rounding across separate elements). */
+  .menu-toggle.open .menu-bar:nth-child(1){ transform: translateY(8px); background: #171613; }
+  .menu-toggle.open .menu-bar:nth-child(2){ transform: translateY(0); opacity: 0; }
+  .menu-toggle.open .menu-bar:nth-child(3){ transform: translateY(-8px); opacity: 0; }
+  .menu-toggle.open .menu-bar:nth-child(4){ transform: translateY(-16px); opacity: 0; }
 
   .menu-dropdown{
     display: none;
@@ -1126,10 +1144,10 @@
     </a>
   </nav>
   <button class="menu-toggle" id="menuToggle" aria-label="Menu" aria-expanded="false" aria-controls="menuDropdown">
-    <span class="menu-bar" style="background:#171613;"></span>
-    <span class="menu-bar" style="background:#4B4A46;"></span>
-    <span class="menu-bar" style="background:#767268;"></span>
-    <span class="menu-bar" style="background:#C9C6BC;"></span>
+    <span class="menu-bar"></span>
+    <span class="menu-bar"></span>
+    <span class="menu-bar"></span>
+    <span class="menu-bar"></span>
   </button>
   <div class="menu-dropdown" id="menuDropdown">
     <a href="#/home" class="menu-item" data-route="home" style="--item-color:#171613; --item-text:#F2F0EA;">
@@ -1723,6 +1741,7 @@
       width: 1040, height: 1300 },
     { id: 'w34', category: 'stills', title: 'GETTOMASA',
       img: 'images/gettomasa/02.jpg', width: 1040, height: 1300,
+      info: { note: "Photography for Gettomasa's introduction to KIPINÄ Basketball team.\n\nShot on 35mm and 120." },
       images: [
         'images/gettomasa/01.jpg',
         'images/gettomasa/02.jpg',
@@ -1737,6 +1756,7 @@
       ] },
     { id: 'w35', category: 'stills', title: 'SKETCH',
       img: 'images/sketch/00.jpg', width: 1040, height: 1300,
+      info: { note: 'Photography and Treatment Test.\n\nShot entirely on 120.\n\nCo-Directed with Tina Del Pino.' },
       images: [
         'images/sketch/01.jpg',
         'images/sketch/02.jpg',
@@ -1750,6 +1770,7 @@
       ] },
     { id: 'w36', category: 'stills', title: 'SCARLET RAE PROMO',
       img: 'images/scarlet-rae-promo/01.jpg', width: 1040, height: 1300,
+      info: { note: 'Photography and Treatment for Scarlett Rae EP Release "Bleu."\n\nShot entirely on 120.\n\nCo-Directed with Tina Del Pino.' },
       images: [
         'images/scarlet-rae-promo/01.jpg',
         'images/scarlet-rae-promo/02.jpg',
@@ -1767,23 +1788,23 @@
       ] },
     // Not filed under Design/Stills/Personal on purpose -- this one's only meant to turn up
     // on Home and in the Index, as a little easter egg rather than a normal section entry.
-    // TEMPORARILY DISABLED: the full videos are too large for GitHub and are waiting on
-    // external hosting (Cloudflare R2). Re-enable once fullVideo points at a hosted URL.
-    // { id: 'w37', category: 'hidden', title: 'ERROR C3123',
-    //   img: 'images/error-c3123/cover.mp4',
-    //   fullVideo: 'images/error-c3123/full.mp4',
-    //   width: 640, height: 480 },
-    // { id: 'w38', category: 'hidden', title: 'NOTES FROM HOME',
-    //   img: 'images/notes-from-home/cover.mp4',
-    //   fullVideo: 'images/notes-from-home/full.mp4',
-    //   width: 1600, height: 1155 },
-    // { id: 'w39', category: 'hidden', title: 'DALTON HIGHWAY',
-    //   img: 'images/dalton-highway/cover.mp4',
-    //   fullVideo: 'images/dalton-highway/full.mp4',
-    //   width: 1600, height: 1155 },
+    // Covers stay local (small); full videos are hosted on Cloudflare R2 since they're too
+    // large for GitHub -- zero egress cost there means repeated streaming doesn't add up.
+    { id: 'w37', category: 'hidden', title: 'ERROR C3123',
+      img: 'images/error-c3123/cover.mp4',
+      fullVideo: 'https://pub-b16e3b098ae94fd3a96b48df062c1d1f.r2.dev/Error%20C3123_FULL.mp4',
+      width: 640, height: 480 },
+    { id: 'w38', category: 'hidden', title: 'NOTES FROM HOME',
+      img: 'images/notes-from-home/cover.mp4',
+      fullVideo: 'https://pub-b16e3b098ae94fd3a96b48df062c1d1f.r2.dev/NotesFromHome_FULL.mp4',
+      width: 1600, height: 1155 },
+    { id: 'w39', category: 'hidden', title: 'DALTON HIGHWAY',
+      img: 'images/dalton-highway/cover.mp4',
+      fullVideo: 'https://pub-b16e3b098ae94fd3a96b48df062c1d1f.r2.dev/ALASKA%20FINAL.mp4',
+      width: 1600, height: 1155 },
   ];
 
-  const catLabel = { design: 'Design', stills: 'Stills', personal: 'Personal' };
+  const catLabel = { design: 'Design', stills: 'Stills', personal: 'Personal', hidden: 'Home' };
   const catStyle = {
     design:   { bg: '#4B4A46', text: '#F2F0EA' },
     stills:   { bg: '#767268', text: '#F2F0EA' },
@@ -2031,7 +2052,7 @@
           <span class="title">${item.title}</span>
         </div>
       </div>
-      <div class="tile-caption">${item.title}</div>
+      <div class="tile-caption">[${item.title}]</div>
     `;
     return tile;
   }
@@ -2864,11 +2885,13 @@
     const closeMenu = () => {
       clearTimeout(closeTimer);
       dropdown.classList.remove('open');
+      toggle.classList.remove('open');
       toggle.setAttribute('aria-expanded', 'false');
     };
 
     toggle.addEventListener('click', () => {
       const open = dropdown.classList.toggle('open');
+      toggle.classList.toggle('open', open);
       toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
     });
 

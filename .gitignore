@@ -2,7 +2,8 @@
 .DS_Store
 Previous/
 
-# Hidden video easter eggs -- waiting on external hosting (Cloudflare R2), too large for GitHub
-images/error-c3123/
-images/notes-from-home/
-images/dalton-highway/
+# Hidden video easter eggs: full videos are hosted on Cloudflare R2 (too large for GitHub) --
+# only the small local cover.mp4 loops need to be committed.
+images/error-c3123/full.mp4
+images/notes-from-home/full.mp4
+images/dalton-highway/full.mp4
