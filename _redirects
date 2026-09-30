@@ -1,4 +1,7 @@
-# apj.studio is a secondary domain that forwards to the primary site at
-# alexanderpatersonjones.com -- covers the bare domain, www, and every path/query.
+# apj.studio and zxndr.com (old domain from a previous site) are secondary domains that
+# forward to the primary site at alexanderpatersonjones.com -- covers the bare domain, www,
+# and every path/query for each.
 https://apj.studio/*  https://alexanderpatersonjones.com/:splat  301!
 https://www.apj.studio/*  https://alexanderpatersonjones.com/:splat  301!
+https://zxndr.com/*  https://alexanderpatersonjones.com/:splat  301!
+https://www.zxndr.com/*  https://alexanderpatersonjones.com/:splat  301!
