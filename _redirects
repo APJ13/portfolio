@@ -1,7 +1,14 @@
 # apj.studio and zxndr.com (old domain from a previous site) are secondary domains that
 # forward to the primary site at alexanderpatersonjones.com -- covers the bare domain, www,
-# and every path/query for each.
+# and every path/query for each. Both http:// and https:// variants are listed explicitly so
+# a plain http request resolves in a single 301 hop straight to the destination, rather than
+# first bouncing through Netlify's own automatic http->https upgrade on the old domain (a
+# two-hop chain that Google's domain-migration tools expect to be just one hop).
+http://apj.studio/*  https://alexanderpatersonjones.com/:splat  301!
 https://apj.studio/*  https://alexanderpatersonjones.com/:splat  301!
+http://www.apj.studio/*  https://alexanderpatersonjones.com/:splat  301!
 https://www.apj.studio/*  https://alexanderpatersonjones.com/:splat  301!
+http://zxndr.com/*  https://alexanderpatersonjones.com/:splat  301!
 https://zxndr.com/*  https://alexanderpatersonjones.com/:splat  301!
+http://www.zxndr.com/*  https://alexanderpatersonjones.com/:splat  301!
 https://www.zxndr.com/*  https://alexanderpatersonjones.com/:splat  301!
