@@ -1127,7 +1127,7 @@
 <h1 class="sr-only">Alexander Paterson-Jones — Designer &amp; Photographer</h1>
 
 <header>
-  <a href="#/about" class="brand" id="brandLink">
+  <a href="#/home" class="brand" id="brandLink">
     <span class="brand-bracket">[</span><span class="brand-text" id="brandText">-</span><span class="brand-bracket">]</span>
   </a>
   <nav id="nav">
@@ -1209,7 +1209,7 @@
   <section class="view" data-view="about">
     <div class="about-wrap">
       <div class="about">
-        <p>Is in progress.</p>
+        <p>Is a New York–based artist &amp; designer paying close attention. Not limited to a singular practice, Alexander explores: bookmaking, photography, illustration and art direction. Through this particular education he has acquired a heightened sensibility for context. Images do not exist in a vacuum—Alexander tailors a world around them.</p>
         <div class="contact-block">
           <div class="contact-label">Get in touch</div>
           <a href="mailto:alexanderpatersonjones@gmail.com" class="contact-link">alexanderpatersonjones@gmail.com</a>
@@ -2875,11 +2875,6 @@
     currentRoute = route;
 
     if(window.setBrandLocked) window.setBrandLocked(route === 'about');
-
-    // The brand mark doubles as an About link everywhere except on About itself, where it
-    // becomes the way back to Home.
-    const brandLink = document.getElementById('brandLink');
-    if(brandLink) brandLink.setAttribute('href', route === 'about' ? '#/home' : '#/about');
 
     document.querySelectorAll('nav a, .menu-item, .footer-credit').forEach(a => {
       // Nav highlighting should reflect the project's own category (not wherever you happened
