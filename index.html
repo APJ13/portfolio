@@ -150,7 +150,7 @@
     vertical-align: middle;
     font-family: 'IBM Plex Mono', monospace;
     font-size: 1.35rem;
-    font-weight: 600;
+    font-weight: 700;
     text-transform: uppercase;
     letter-spacing: -0.03em;
     transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
@@ -336,10 +336,11 @@
     display: block;
     pointer-events: none;
     opacity: 0;
-    transition: transform 0.6s cubic-bezier(0.2, 0.7, 0.3, 1), opacity 0.45s ease;
+    filter: blur(16px);
+    transition: transform 0.6s cubic-bezier(0.2, 0.7, 0.3, 1), opacity 0.9s ease, filter 1.4s ease;
   }
 
-  .tile-media img.loaded, .tile-media video.loaded{ opacity: 1; }
+  .tile-media img.loaded, .tile-media video.loaded{ opacity: 1; filter: blur(0); }
 
   .tile-label{
     position: absolute;
@@ -1855,10 +1856,25 @@
 
     // Pre-compute each item's cell footprint first, so we can size the canvas to a
     // balanced width/height ratio instead of a fixed column count that only grows taller.
-    const spans = items.map(item => {
+    // Rounding pxW/pxH up to the nearest cell can land just barely above a cell boundary,
+    // leaving much less buffer around a tile than most items happen to get -- landscape items
+    // (the hidden video projects, aspect ratio > 1, unlike every portrait photo project) hit
+    // this worst, visibly crowding their neighbors even though they technically clear GUTTER.
+    // Rather than guess a fixed multiplier (mobile and desktop's typical slack-to-GUTTER ratio
+    // differ), derive "normal" directly from this item set: the median slack most tiles land
+    // on, then bump any outlier short of that by one more cell so every tile's breathing room
+    // is consistent, not just technically non-zero.
+    const raw = items.map(item => {
       const { w: pxW, h: pxH } = pixelSizeFor(item);
       const w = Math.max(1, Math.ceil((pxW + GUTTER) / CELL));
       const h = Math.max(1, Math.ceil((pxH + GUTTER) / CELL));
+      return { item, w, h, pxW, pxH, slack: Math.min(w * CELL - pxW, h * CELL - pxH) };
+    });
+    const sortedSlack = raw.map(r => r.slack).sort((a, b) => a - b);
+    const medianSlack = sortedSlack[Math.floor(sortedSlack.length / 2)];
+    const spans = raw.map(({ item, w, h, pxW, pxH }) => {
+      if(w * CELL - pxW < medianSlack) w += 1;
+      if(h * CELL - pxH < medianSlack) h += 1;
       return { item, w, h, pxW, pxH };
     });
 
@@ -1977,6 +1993,21 @@
     const canvasW = containerWidth + pad * 2;
     const canvasH = (col === 0 ? rowTop : rowTop + rowMaxHeight + GAP) + pad;
     return { placed, canvasW, canvasH };
+  }
+
+  // Readable URL slug derived from a project's title (e.g. "Odds & Ends" -> "odds-ends"), used
+  // in place of the internal id (w5, w12, ...) so project links actually show the project name.
+  function slugify(str){
+    return (str || '')
+      .toLowerCase()
+      .normalize('NFKD').replace(/[̀-ͯ]/g, '')
+      .replace(/['’]/g, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+  }
+
+  function projectSlug(item){
+    return slugify(item.title) || item.id;
   }
 
   // Detects a video file by extension so cover/gallery media can be mixed freely per-item,
@@ -2238,7 +2269,7 @@
         const id = state.downTile.dataset.id;
         const item = works.find(w => w.id === id);
         if(isVideoOnlyProject(item)) openVideoModal(item);
-        else location.hash = '#/project/' + id;
+        else location.hash = '#/project/' + projectSlug(item);
       }
       state.downTile = null;
     };
@@ -2520,7 +2551,7 @@
     sorted.forEach(item => {
       const style = catStyle[item.category] || { bg: '#171613' };
       const row = document.createElement('a');
-      row.href = '#/project/' + item.id;
+      row.href = '#/project/' + projectSlug(item);
       row.className = 'index-row';
       if(isVideoOnlyProject(item)){
         row.addEventListener('click', (e) => {
@@ -2800,7 +2831,11 @@
   function setRoute(){
     const hash = location.hash.replace('#/', '');
     const projectMatch = hash.match(/^project\/(.+)$/);
-    const projectItem = projectMatch ? works.find(w => w.id === projectMatch[1]) : null;
+    // Slug lookup first (what links actually use now); raw id fallback keeps any
+    // already-shared or indexed /#/project/w5-style links from breaking.
+    const projectItem = projectMatch
+      ? works.find(w => projectSlug(w) === projectMatch[1]) || works.find(w => w.id === projectMatch[1])
+      : null;
 
     const route = projectItem ? 'project' : (routes.includes(hash) ? hash : 'home');
 
