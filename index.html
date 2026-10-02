@@ -2053,7 +2053,7 @@
     });
   })();
 
-  function buildTile(item, left, top, width, height, isPrimary){
+  function buildTile(item, left, top, width, height){
     const tile = document.createElement('div');
     tile.className = 'tile';
     tile.style.left = left + 'px';
@@ -2063,17 +2063,14 @@
     tile.dataset.id = item.id;
     const style = catStyle[item.category] || { bg: '#171613', text: '#F2F0EA' };
 
-    // Home tiles every item 9x for the seamless infinite-scroll wrap (see buildCanvas). The
-    // 8 non-primary copies are only ever glimpsed mid-pan right up until the silent snap back
-    // into the real middle copy -- giving each of them their own independent <video> meant a
-    // panned-past cover could end up re-fetching the same clip from scratch over and over.
-    // They get a static poster frame instead; only the one real copy actually plays video.
+    // Home tiles every item 9x for the seamless infinite-scroll wrap (see buildCanvas), so a
+    // video cover has nine copies. They all start without a src and only load/play while on
+    // screen (see setupVideoAutoplay) -- whichever copy you're actually looking at is a real
+    // video, but only a handful ever exist at once instead of nine per project.
     const isVideoCover = isVideoSrc(item.img);
-    const media = isVideoCover && (isPrimary !== false || !item.poster)
-      ? `<video src="${item.img}" ${item.poster ? `poster="${item.poster}"` : ''} muted loop playsinline preload="metadata" onloadeddata="this.classList.add('loaded')" onerror="this.classList.add('loaded')"></video>`
-      : isVideoCover
-        ? `<img src="${item.poster}" alt="${item.title}" loading="lazy" draggable="false" onload="this.classList.add('loaded')" onerror="this.classList.add('loaded')">`
-        : `<img src="${item.img}" alt="${item.title}" loading="lazy" draggable="false" onload="this.classList.add('loaded')" onerror="this.classList.add('loaded')">`;
+    const media = isVideoCover
+      ? `<video data-src="${item.img}" ${item.poster ? `poster="${item.poster}"` : ''} muted loop playsinline preload="none" ${item.poster ? '' : `onloadeddata="this.classList.add('loaded')" `}onerror="this.classList.add('loaded')"></video>`
+      : `<img src="${item.img}" alt="${item.title}" loading="lazy" draggable="false" onload="this.classList.add('loaded')" onerror="this.classList.add('loaded')">`;
 
     tile.innerHTML = `
       <div class="tile-media">
@@ -2117,7 +2114,7 @@
         for(let tx = -1; tx <= 1; tx++){
           const isPrimary = tx === 0 && ty === 0;
           placed.forEach(({ item, left, top, width, height }) => {
-            const tile = buildTile(item, left + canvasW + tx * canvasW, top + canvasH + ty * canvasH, width, height, isPrimary);
+            const tile = buildTile(item, left + canvasW + tx * canvasW, top + canvasH + ty * canvasH, width, height);
             canvasEl.appendChild(tile);
             if(isPrimary) tilesById.set(item.id, tile);
           });
@@ -2183,14 +2180,34 @@
       entries.forEach(entry => {
         const video = entry.target;
         if(entry.isIntersecting){
+          // Covers ship without a src; attach it only once the tile is actually near view.
+          if(video.dataset.src && !video.getAttribute('src')){
+            video.src = video.dataset.src;
+            video.preload = 'auto';
+          }
           video.play().catch(() => {}); // ignore autoplay rejections (e.g. low-power mode)
         } else {
           video.pause();
+          // Free the decoder for off-screen copies; the file stays in the HTTP cache so
+          // coming back into view restarts it quickly instead of re-downloading.
+          if(video.dataset.src && video.getAttribute('src')){
+            video.removeAttribute('src');
+            video.load();
+          }
         }
       });
-    }, { root: wrap, threshold: 0.15 });
+    }, { root: wrap, rootMargin: '200px', threshold: 0.01 });
 
-    wrap.querySelectorAll('video').forEach(v => observer.observe(v));
+    wrap.querySelectorAll('video').forEach(v => {
+      // Poster-bearing covers have no src yet, so there's no loadeddata to fade them in on --
+      // use the poster image's own load instead so the blur-in still plays.
+      if(v.poster && !v.classList.contains('loaded')){
+        const img = new Image();
+        img.onload = img.onerror = () => v.classList.add('loaded');
+        img.src = v.poster;
+      }
+      observer.observe(v);
+    });
   }
 
   // ---------- Scale tiles by proximity to viewport center ----------
