@@ -500,7 +500,9 @@
 
   .menu-item.active .menu-item-text{ color: var(--item-text); }
 
-  @media (max-width: 640px){
+  /* Narrow screens and touch devices (iPads are wider than 640px but still have no hover,
+     so the color-chip nav isn't the right control there) get the hamburger instead. */
+  @media (max-width: 640px), (hover: none), (pointer: coarse){
     nav#nav{ display: none; }
     .menu-toggle{ display: flex; }
 
