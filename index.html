@@ -369,8 +369,9 @@
 
   .tile-caption{ display: none; }
 
-  @media (max-width: 640px){
-    /* No hover on touch, so the reveal-chip never shows -- use a plain caption below instead. */
+  @media (max-width: 640px), (hover: none), (pointer: coarse){
+    /* No hover on touch, so the reveal-chip never shows -- use a plain caption below instead.
+       Applies to every touch device, not just narrow phones (iPads are wider than 640px). */
     .tile-label{ display: none; }
     .tile-caption{
       display: block;
