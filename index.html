@@ -3197,56 +3197,71 @@
     let timer = null;
     let gen = 0;
 
+    // Both return a promise that settles when the typing has actually finished (or been
+    // superseded), so callers can wait for it instead of guessing how long it will take.
     function typeIn(){
       const myGen = ++gen;
       clearTimeout(timer);
       link.classList.add('expanded');
       let idx = fillerIndices.filter(i => revealed.has(i)).length;
-      (function step(){
-        if(myGen !== gen) return;
-        if(idx < fillerIndices.length){
-          revealed.add(fillerIndices[idx]);
-          render();
-          idx++;
-          timer = setTimeout(step, TYPE_MS);
-        }
-      })();
+      return new Promise(resolve => {
+        (function step(){
+          if(myGen !== gen) return resolve();
+          if(idx < fillerIndices.length){
+            revealed.add(fillerIndices[idx]);
+            render();
+            idx++;
+            timer = setTimeout(step, TYPE_MS);
+          } else {
+            resolve();
+          }
+        })();
+      });
     }
 
     function typeOut(){
-      if(locked) return;
+      if(locked) return Promise.resolve();
       const myGen = ++gen;
       clearTimeout(timer);
       let idx = fillerIndices.filter(i => revealed.has(i)).length - 1;
-      (function step(){
-        if(myGen !== gen) return;
-        if(idx >= 0){
-          revealed.delete(fillerIndices[idx]);
-          render();
-          idx--;
-          timer = setTimeout(step, DELETE_MS);
-        } else {
-          link.classList.remove('expanded');
-        }
-      })();
+      return new Promise(resolve => {
+        (function step(){
+          if(myGen !== gen) return resolve();
+          if(idx >= 0){
+            revealed.delete(fillerIndices[idx]);
+            render();
+            idx--;
+            timer = setTimeout(step, DELETE_MS);
+          } else {
+            link.classList.remove('expanded');
+            resolve();
+          }
+        })();
+      });
     }
 
     const supportsHover = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
     if(!supportsHover){
       // No hover on touch, so there's no way to trigger the reveal manually -- cycle it
-      // automatically instead: expand, hold, collapse, hold, repeat, every 4 seconds.
-      let expanded = false;
-      let cycleTimer = null;
-      const startCycle = firstDelay => {
-        clearTimeout(cycleTimer);
-        clearInterval(cycleTimer);
-        expanded = false;
-        const tick = () => {
-          if(locked) return;
-          expanded = !expanded;
-          if(expanded) typeIn(); else typeOut();
-        };
-        cycleTimer = setTimeout(() => { tick(); cycleTimer = setInterval(tick, 4000); }, firstDelay);
+      // automatically instead: expand, hold, collapse, hold, repeat. Every step waits for the
+      // one before it to actually finish (typing can run slowly on a busy phone) and only then
+      // holds for a set time, so the name is never closed again before it has finished opening.
+      const OPEN_HOLD = 3400;
+      const CLOSED_HOLD = 3600;
+      const wait = ms => new Promise(r => setTimeout(r, ms));
+      let runId = 0;
+      const startCycle = async firstDelay => {
+        const mine = ++runId;
+        await wait(firstDelay);
+        while(mine === runId){
+          if(locked){ await wait(400); continue; }
+          await typeIn();
+          await wait(OPEN_HOLD);
+          if(mine !== runId) return;
+          if(locked) continue;
+          await typeOut();
+          await wait(CLOSED_HOLD);
+        }
       };
       // The intro owns the screen first (and hands off to a closed [-]), so the cycle only
       // starts once it's finished -- the intro calls this when it ends.
