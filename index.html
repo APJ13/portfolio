@@ -1158,6 +1158,8 @@
      then they fade in underneath it. Home's tiles are held back until they're placed. */
   header, footer{ transition: opacity 0.5s ease; }
 
+  html.intro-swap header{ transition: none; }
+
   html.intro-run:not(.intro-chrome-on) header,
   html.intro-run:not(.intro-chrome-on) footer{ opacity: 0; }
 
@@ -1195,7 +1197,6 @@
     display: flex;
     align-items: center;
   }
-  #intro.up .i-brand{ top: 0; }
 
   .i-mark{
     display: flex;
@@ -1217,7 +1218,7 @@
   /* The squares sit left-anchored in fixed slots, each scaling in/out from its left edge, so
      they arrive and leave one at a time without the rest of the row shifting. */
   .i-chips{ right: 0; top: calc(50% - 16px); height: 32px; display: flex; }
-  #intro.up .i-chips{ top: -0.5px; }
+
   .i-chip{
     display: flex;
     align-items: center;
@@ -3416,14 +3417,18 @@
       im.src = 'images/intro/' + w.id + '.jpg';
     })));
 
+    // Wait for the real font (not a fallback's metrics) before measuring anything, and give a
+    // slow phone connection plenty of time to fetch it before giving up. (This script runs after
+    // the stylesheet that declares the font has loaded, so the font faces already exist here.)
     const fontsReady = Promise.race([
-      document.fonts && document.fonts.load ? document.fonts.load('700 21.6px "IBM Plex Mono"') : Promise.resolve(),
-      new Promise(r => setTimeout(r, 1500))
+      (document.fonts && document.fonts.load) ? document.fonts.load('700 21.6px "IBM Plex Mono"', '[-]ALEXANDER PATERSON-JONES') : null,
+      new Promise(r => setTimeout(r, 6000))
     ]);
+    const frames = n => new Promise(res => { const go = k => k ? requestAnimationFrame(() => go(k - 1)) : res(); go(n); });
 
-    function charWidth(){
+    function charWidth(fontPx){
       const probe = mark.cloneNode(false);
-      probe.style.cssText = 'position:absolute;visibility:hidden;width:auto;';
+      probe.style.cssText = 'position:absolute;visibility:hidden;width:auto;transition:none;font-size:' + fontPx + 'px;';
       probe.textContent = 'M'.repeat(20);
       brand.appendChild(probe);
       const w = probe.getBoundingClientRect().width / 20;
@@ -3470,39 +3475,39 @@
       }));
     }
 
-    function finish(instant){
+    function finish(){
       try{ sessionStorage.setItem('introSeen', '1'); }catch(e){}
-      const done = () => {
-        root.classList.remove('intro-run', 'intro-chrome-on');
-        intro.remove();
-        // Touch devices: now that the mark has landed in the corner, let the name expand from it.
-        if(window.startBrandCycle) window.startBrandCycle(900);
-      };
-      if(instant){ done(); return; }
-      intro.style.transition = 'opacity 0.3s ease';
-      intro.style.opacity = '0';
-      setTimeout(done, 320);
+      root.classList.remove('intro-run', 'intro-chrome-on', 'intro-swap');
+      intro.remove();
+      // Touch devices: now that the mark has landed in the corner, let the name expand from it.
+      if(window.startBrandCycle) window.startBrandCycle(900);
     }
 
     async function run(){
       await fontsReady;
       if(skipped) return;
-      const vw = window.innerWidth;
-      const w3 = mark.getBoundingClientRect().width;   // "[-]" as it sits at first paint
-      const cw0 = charWidth();
-      // The opened mark ("[" + full name + "]") is ~26 characters wide; on very narrow screens
-      // it's shrunk just while it's open so the brackets never run off the edges.
-      const fit = Math.min(1, (vw - 40) / (cw0 * (FULL.length + 2)));
+      // Make sure the lone [-] has actually been painted before the clock starts, so a slow
+      // phone can't skip straight past it.
+      await Promise.race([frames(2), sleep(1500)]);
+      if(skipped) return;
+
       const baseFont = parseFloat(getComputedStyle(mark).fontSize);
-      const cw = cw0 * fit;
-      const W = cw * (FULL.length + 2);                // "[" + name + "]"
-      const homeLeft = document.querySelector('.brand').getBoundingClientRect().left;
+      // Sizes are measured when they're used rather than once up front. The opened mark
+      // ("[" + full name + "]") is ~26 characters wide; on very narrow screens it's shrunk just
+      // while it's open so the brackets never run off the edges. closedW is the natural width of
+      // "[-]" (three characters less the first bracket's optical margin), i.e. the real header's.
+      const geo = () => {
+        const cw0 = charWidth(baseFont);
+        const fit = Math.min(1, (window.innerWidth - 40) / (cw0 * (FULL.length + 2)));
+        return { fit, cw: cw0 * fit, W: cw0 * fit * (FULL.length + 2), closedW: cw0 * 3 - 0.09 * baseFont };
+      };
+      let g = geo();
 
       // Hand the mark's position from CSS centering to explicit pixels (no visible change).
       brand.style.transition = 'none';
       brand.style.transform = 'none';
-      brand.style.left = ((vw - w3) / 2) + 'px';
-      mark.style.width = w3 + 'px';
+      brand.style.left = ((window.innerWidth - g.closedW) / 2) + 'px';
+      mark.style.width = g.closedW + 'px';
       brand.getBoundingClientRect();
       brand.style.transition = '';
 
@@ -3512,12 +3517,13 @@
 
       // 2. The name expands from the center while the squares arrive one at a time.
       phase('expand');
+      g = geo();
       const expandMs = fillers.length * T.type + 60;
       dur('--wdur', expandMs);
       dur('--ldur', expandMs);
-      if(fit < 1) mark.style.fontSize = (baseFont * fit) + 'px';
-      mark.style.width = W + 'px';
-      brand.style.left = ((vw - W) / 2) + 'px';
+      if(g.fit < 1) mark.style.fontSize = (baseFont * g.fit) + 'px';
+      mark.style.width = g.W + 'px';
+      brand.style.left = ((window.innerWidth - g.W) / 2) + 'px';
       const squaresIn = (async () => {
         for(const sq of squares){
           if(skipped) return;
@@ -3540,41 +3546,53 @@
       // 3. Covers cycle between the brackets, in the span the name just filled.
       phase('cycle');
       txt.textContent = '';
-      await cycle(cw, W);
+      await cycle(g.cw, g.W);
       await sleep(T.beat);
       if(skipped) return;
 
       // 4. The empty brackets slide to the left edge, still at mid-screen.
       phase('slide');
       dur('--ldur', T.slide);
-      brand.style.left = homeLeft + 'px';
+      brand.style.left = document.querySelector('.brand').getBoundingClientRect().left + 'px';
       await sleep(T.slide);
       if(skipped) return;
 
       // 5. They close back up to [-].
       phase('close');
+      g = geo();
       txt.textContent = '-';
       dur('--wdur', T.close);
       mark.style.fontSize = '';
-      mark.style.width = w3 + 'px';
+      mark.style.width = g.closedW + 'px';
       await sleep(T.close + 80);
       if(skipped) return;
 
-      // 6. Mark and squares rise straight up, pushing the tiles into place.
+      // 6. Mark and squares rise straight up, landing exactly on the real header's, wherever
+      //    the fonts actually put it, pushing the tiles into place as they go.
       phase('place');
-      intro.classList.add('up');
+      const realLB = document.querySelector('header .brand-bracket').getBoundingClientRect();
+      const myLB = mark.querySelector('.i-b').getBoundingClientRect();
+      const bs = getComputedStyle(brand);
+      brand.style.left = (parseFloat(bs.left) + realLB.left - myLB.left) + 'px';
+      brand.style.top = (parseFloat(bs.top) + realLB.top - myLB.top) + 'px';
+      const realNav = document.querySelector('header nav');
+      if(squares.length && realNav) intro.querySelector('.i-chips').style.top = realNav.getBoundingClientRect().top + 'px';
       const placing = placeTiles();
       await sleep(T.rise);
       if(squares[0]){
         squares[0].classList.add('open');
         await sleep(T.open);
       }
-      root.classList.add('intro-chrome-on');
+      // The real header takes over in a single frame (no cross-fade), so there's never a moment
+      // with two marks on screen even if one is a pixel off.
+      root.classList.add('intro-chrome-on', 'intro-swap');
+      intro.remove();
+      setTimeout(() => root.classList.remove('intro-swap'), 100);
       await placing;
       await sleep(T.settle);
     }
 
-    run().catch(() => { skipped = true; }).then(() => finish(skipped));
+    run().catch(() => { skipped = true; }).then(finish);
   })();
 </script>
 
