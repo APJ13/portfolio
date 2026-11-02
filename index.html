@@ -1206,7 +1206,6 @@
 
   .i-mark{
     display: flex;
-    width: 1.62em; /* "[-]": 3 characters of 0.57em, less the first bracket's 0.09em optical margin */
     height: 1.3em;
     font-family: 'IBM Plex Mono', monospace;
     font-size: 1.35rem;
@@ -1219,7 +1218,7 @@
     transition: width var(--wdur, 0.4s) cubic-bezier(0.4, 0, 0.2, 1), font-size var(--wdur, 0.4s) cubic-bezier(0.4, 0, 0.2, 1);
   }
 
-  .i-mark .i-t{ flex: 1; min-width: 0; }
+  .i-mark .i-t{ flex: none; }
   .i-mark .i-b:first-child{ margin-left: -0.09em; }
 
   /* The squares sit left-anchored in fixed slots, each scaling in/out from its left edge, so
@@ -3504,28 +3503,10 @@
       if(skipped) return;
 
       const baseFont = parseFloat(getComputedStyle(mark).fontSize);
-      // Sizes come from a fixed rule, not from measuring anything on the page: in this mono
-      // font one character is 0.57em wide (0.6em advance less the -0.03em letter-spacing). An
-      // earlier version measured a hidden test element instead and phones' browsers disagreed
-      // about how wide it was, leaving everything too small and clipping the hyphen.
-      // The opened mark ("[" + full name + "]") is 26 characters wide; on very narrow screens
-      // it's shrunk just while it's open so the brackets never run off the edges.
-      const CW = 0.57;   // one character, in em
-      const OPT = 0.09;  // the first bracket's optical margin, in em
-      const geo = () => {
-        const fit = Math.min(1, (window.innerWidth - 40) / (baseFont * CW * (FULL.length + 2)));
-        const cw = baseFont * CW * fit;
-        return { fit, cw, W: cw * (FULL.length + 2), closedW: baseFont * (3 * CW - OPT) };
-      };
-      let g = geo();
-
-      // Hand the mark's position from CSS centering to explicit pixels (no visible change).
-      brand.style.transition = 'none';
-      brand.style.transform = 'none';
-      brand.style.left = ((window.innerWidth - g.closedW) / 2) + 'px';
-      mark.style.width = g.closedW + 'px';
+      // The mark is left to the browser to size and centre (width:auto, centred by CSS), so the
+      // brackets always hug whatever text is in them on every device: nothing here is computed
+      // from assumed glyph widths.
       brand.getBoundingClientRect();
-      brand.style.transition = '';
 
       phase('begin');
       await sleep(T.begin);
@@ -3533,23 +3514,8 @@
 
       // 2. The name expands from the center while the squares arrive one at a time.
       phase('expand');
-      g = geo();
-      // The brackets grow in step with each typed letter (never on a separate animation that
-      // can fall behind it), so the text always has room and the hyphen is never clipped. The
-      // growth is applied instantly per letter, like a typewriter advancing.
-      dur('--wdur', 0);   // instant: each letter and its bracket step together, never one behind the other
+      dur('--wdur', 0);   // typing is instant: the browser sizes the brackets to the text
       dur('--ldur', 0);
-      if(g.fit < 1){
-        mark.style.transition = 'none';
-        mark.style.fontSize = (baseFont * g.fit) + 'px';
-        mark.getBoundingClientRect();
-        mark.style.transition = '';
-      }
-      const hug = len => {
-        const w = (len + 2) * g.cw; // "[" + text + "]"
-        mark.style.width = w + 'px';
-        brand.style.left = ((window.innerWidth - w) / 2) + 'px';
-      };
       const squaresIn = (async () => {
         for(const sq of squares){
           if(skipped) return;
@@ -3557,37 +3523,47 @@
           await sleep(T.squareIn);
         }
       })();
+      // On narrow screens, shrink the type just while the full name is showing so it fits.
+      txt.textContent = FULL;
+      const fullW = mark.getBoundingClientRect().width;
+      const fit = Math.min(1, (window.innerWidth - 40) / fullW);
+      if(fit < 1){
+        mark.style.transition = 'none';
+        mark.style.fontSize = (baseFont * fit) + 'px';
+        mark.getBoundingClientRect();
+        mark.style.transition = '';
+      }
       const revealed = new Set([ANCHOR]);
       render(revealed);
-      hug(revealed.size);
       for(const i of fillers){
         if(skipped) return;
         revealed.add(i);
         render(revealed);
-        hug(revealed.size);
         await sleep(T.type);
       }
-      // However far behind the animation is, finish on the exact full-width geometry.
-      mark.style.transition = 'none';
-      brand.style.transition = 'none';
-      mark.style.width = g.W + 'px';
-      brand.style.left = ((window.innerWidth - g.W) / 2) + 'px';
-      mark.getBoundingClientRect();
-      mark.style.transition = '';
-      brand.style.transition = '';
+      txt.textContent = FULL;
+      const W = mark.getBoundingClientRect().width;
+      const cw = W / (FULL.length + 2);
       await squaresIn;
       await sleep(T.hold);
       if(skipped) return;
 
       // 3. Covers cycle between the brackets, in the span the name just filled.
       phase('cycle');
+      mark.style.width = W + 'px';   // keep the brackets apart while the covers show
       txt.textContent = '';
-      await cycle(g.cw, g.W);
+      await cycle(cw, W);
       await sleep(T.beat);
       if(skipped) return;
 
       // 4. The empty brackets slide to the left edge, still at mid-screen.
       phase('slide');
+      const here = brand.getBoundingClientRect().left;
+      brand.style.transition = 'none';
+      brand.style.transform = 'none';
+      brand.style.left = here + 'px';
+      brand.getBoundingClientRect();
+      brand.style.transition = '';
       dur('--ldur', T.slide);
       brand.style.left = document.querySelector('.brand').getBoundingClientRect().left + 'px';
       await sleep(T.slide);
@@ -3595,11 +3571,16 @@
 
       // 5. They close back up to [-].
       phase('close');
-      g = geo();
       txt.textContent = '-';
-      dur('--wdur', T.close);
+      mark.style.transition = 'none';
       mark.style.fontSize = '';
-      mark.style.width = g.closedW + 'px';
+      mark.style.width = '';
+      const closedW = mark.getBoundingClientRect().width;
+      mark.style.width = W + 'px';
+      mark.getBoundingClientRect();
+      mark.style.transition = '';
+      dur('--wdur', T.close);
+      mark.style.width = closedW + 'px';
       await sleep(T.close + 80);
       if(skipped) return;
 
