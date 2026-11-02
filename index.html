@@ -1170,7 +1170,13 @@
   html.intro-run .canvas[data-canvas="home"] .tile{ translate: 0 70px; }
   html.intro-run .canvas[data-canvas="home"] .tile.placed{
     translate: 0 0;
-    transition: transform 0.2s ease-out, translate 0.7s cubic-bezier(0.2, 0.7, 0.3, 1);
+    transition: transform 0.2s ease-out, translate 1.2s cubic-bezier(0.2, 0.7, 0.3, 1);
+  }
+
+  /* Images come into focus more slowly while they're being placed. */
+  html.intro-run .canvas[data-canvas="home"] .tile.placed .tile-media img,
+  html.intro-run .canvas[data-canvas="home"] .tile.placed .tile-media video{
+    transition: transform 0.6s cubic-bezier(0.2, 0.7, 0.3, 1), opacity 1.3s ease, filter 2s ease;
   }
 
   /* Keep an already-loaded image blurred until its tile is placed, so the focus pull plays
@@ -1200,6 +1206,7 @@
 
   .i-mark{
     display: flex;
+    width: 1.62em; /* "[-]": 3 characters of 0.57em, less the first bracket's 0.09em optical margin */
     height: 1.3em;
     font-family: 'IBM Plex Mono', monospace;
     font-size: 1.35rem;
@@ -1212,7 +1219,7 @@
     transition: width var(--wdur, 0.4s) cubic-bezier(0.4, 0, 0.2, 1), font-size var(--wdur, 0.4s) cubic-bezier(0.4, 0, 0.2, 1);
   }
 
-  .i-mark .i-t{ flex: 1; min-width: 0; overflow: hidden; }
+  .i-mark .i-t{ flex: 1; min-width: 0; }
   .i-mark .i-b:first-child{ margin-left: -0.09em; }
 
   /* The squares sit left-anchored in fixed slots, each scaling in/out from its left edge, so
@@ -3393,8 +3400,8 @@
       close: 520,      // brackets close back to [-]
       rise: 750,       // mark + squares go straight up to the header
       open: 300,       // HOME square opens once it lands
-      place: 55,       // gap between each Home tile being pushed into place
-      settle: 850      // each tile's slide into place
+      place: 110,      // gap between each Home tile being pushed into place
+      settle: 1300     // each tile's slide into place
     };
     if(/[?&]intro=slow/.test(location.search)) Object.keys(T).forEach(k => { T[k] *= 4; });
     const FLASH_COUNT = 12;
@@ -3440,16 +3447,6 @@
       new Promise(r => setTimeout(r, 6000))
     ]);
     const frames = n => new Promise(res => { const go = k => k ? requestAnimationFrame(() => go(k - 1)) : res(); go(n); });
-
-    function charWidth(fontPx){
-      const probe = mark.cloneNode(false);
-      probe.style.cssText = 'position:absolute;visibility:hidden;width:auto;transition:none;font-size:' + fontPx + 'px;';
-      probe.textContent = 'M'.repeat(20);
-      brand.appendChild(probe);
-      const w = probe.getBoundingClientRect().width / 20;
-      probe.remove();
-      return w;
-    }
 
     const fillers = [];
     for(let i = 0; i < FULL.length; i++) if(i !== ANCHOR) fillers.push(i);
@@ -3507,14 +3504,18 @@
       if(skipped) return;
 
       const baseFont = parseFloat(getComputedStyle(mark).fontSize);
-      // Sizes are measured when they're used rather than once up front. The opened mark
-      // ("[" + full name + "]") is ~26 characters wide; on very narrow screens it's shrunk just
-      // while it's open so the brackets never run off the edges. closedW is the natural width of
-      // "[-]" (three characters less the first bracket's optical margin), i.e. the real header's.
+      // Sizes come from a fixed rule, not from measuring anything on the page: in this mono
+      // font one character is 0.57em wide (0.6em advance less the -0.03em letter-spacing). An
+      // earlier version measured a hidden test element instead and phones' browsers disagreed
+      // about how wide it was, leaving everything too small and clipping the hyphen.
+      // The opened mark ("[" + full name + "]") is 26 characters wide; on very narrow screens
+      // it's shrunk just while it's open so the brackets never run off the edges.
+      const CW = 0.57;   // one character, in em
+      const OPT = 0.09;  // the first bracket's optical margin, in em
       const geo = () => {
-        const cw0 = charWidth(baseFont);
-        const fit = Math.min(1, (window.innerWidth - 40) / (cw0 * (FULL.length + 2)));
-        return { fit, cw: cw0 * fit, W: cw0 * fit * (FULL.length + 2), closedW: cw0 * 3 - 0.09 * baseFont };
+        const fit = Math.min(1, (window.innerWidth - 40) / (baseFont * CW * (FULL.length + 2)));
+        const cw = baseFont * CW * fit;
+        return { fit, cw, W: cw * (FULL.length + 2), closedW: baseFont * (3 * CW - OPT) };
       };
       let g = geo();
 
@@ -3533,12 +3534,22 @@
       // 2. The name expands from the center while the squares arrive one at a time.
       phase('expand');
       g = geo();
-      const expandMs = fillers.length * T.type + 60;
-      dur('--wdur', expandMs);
-      dur('--ldur', expandMs);
-      if(g.fit < 1) mark.style.fontSize = (baseFont * g.fit) + 'px';
-      mark.style.width = g.W + 'px';
-      brand.style.left = ((window.innerWidth - g.W) / 2) + 'px';
+      // The brackets grow in step with each typed letter (never on a separate animation that
+      // can fall behind it), so the text always has room and the hyphen is never clipped. The
+      // growth is applied instantly per letter, like a typewriter advancing.
+      dur('--wdur', 0);   // instant: each letter and its bracket step together, never one behind the other
+      dur('--ldur', 0);
+      if(g.fit < 1){
+        mark.style.transition = 'none';
+        mark.style.fontSize = (baseFont * g.fit) + 'px';
+        mark.getBoundingClientRect();
+        mark.style.transition = '';
+      }
+      const hug = len => {
+        const w = (len + 2) * g.cw; // "[" + text + "]"
+        mark.style.width = w + 'px';
+        brand.style.left = ((window.innerWidth - w) / 2) + 'px';
+      };
       const squaresIn = (async () => {
         for(const sq of squares){
           if(skipped) return;
@@ -3548,12 +3559,22 @@
       })();
       const revealed = new Set([ANCHOR]);
       render(revealed);
+      hug(revealed.size);
       for(const i of fillers){
         if(skipped) return;
         revealed.add(i);
         render(revealed);
+        hug(revealed.size);
         await sleep(T.type);
       }
+      // However far behind the animation is, finish on the exact full-width geometry.
+      mark.style.transition = 'none';
+      brand.style.transition = 'none';
+      mark.style.width = g.W + 'px';
+      brand.style.left = ((window.innerWidth - g.W) / 2) + 'px';
+      mark.getBoundingClientRect();
+      mark.style.transition = '';
+      brand.style.transition = '';
       await squaresIn;
       await sleep(T.hold);
       if(skipped) return;
