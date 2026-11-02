@@ -3235,11 +3235,22 @@
       // No hover on touch, so there's no way to trigger the reveal manually -- cycle it
       // automatically instead: expand, hold, collapse, hold, repeat, every 4 seconds.
       let expanded = false;
-      setInterval(() => {
-        if(locked) return;
-        expanded = !expanded;
-        if(expanded) typeIn(); else typeOut();
-      }, 4000);
+      let cycleTimer = null;
+      const startCycle = firstDelay => {
+        clearTimeout(cycleTimer);
+        clearInterval(cycleTimer);
+        expanded = false;
+        const tick = () => {
+          if(locked) return;
+          expanded = !expanded;
+          if(expanded) typeIn(); else typeOut();
+        };
+        cycleTimer = setTimeout(() => { tick(); cycleTimer = setInterval(tick, 4000); }, firstDelay);
+      };
+      // The intro owns the screen first (and hands off to a closed [-]), so the cycle only
+      // starts once it's finished -- the intro calls this when it ends.
+      window.startBrandCycle = startCycle;
+      if(!document.documentElement.classList.contains('intro-run')) startCycle(4000);
     } else {
       link.addEventListener('mouseenter', typeIn);
       link.addEventListener('mouseleave', typeOut);
@@ -3461,7 +3472,12 @@
 
     function finish(instant){
       try{ sessionStorage.setItem('introSeen', '1'); }catch(e){}
-      const done = () => { root.classList.remove('intro-run', 'intro-chrome-on'); intro.remove(); };
+      const done = () => {
+        root.classList.remove('intro-run', 'intro-chrome-on');
+        intro.remove();
+        // Touch devices: now that the mark has landed in the corner, let the name expand from it.
+        if(window.startBrandCycle) window.startBrandCycle(900);
+      };
       if(instant){ done(); return; }
       intro.style.transition = 'opacity 0.3s ease';
       intro.style.opacity = '0';
