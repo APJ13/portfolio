@@ -3,6 +3,26 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script>
+  // Decides before first paint whether this load plays the intro: only when landing on Home,
+  // only once per session, and never for people who've asked their device to reduce motion.
+  // Add ?intro to the address to force a replay. The timeout is a failsafe so a broken
+  // script can never leave the site hidden.
+  (function(){
+    try{
+      var d = document.documentElement;
+      var h = location.hash;
+      var forced = /[?&]intro(=|&|$)/.test(location.search);
+      var onHome = h === '' || h === '#' || h === '#/' || h === '#/home';
+      var seen = sessionStorage.getItem('introSeen');
+      var calm = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if((forced || (onHome && !seen)) && !calm){
+        d.classList.add('intro-run');
+        setTimeout(function(){ d.classList.remove('intro-run', 'intro-chrome-on'); }, /[?&]intro=slow/.test(location.search) ? 90000 : 12000);
+      }
+    }catch(e){}
+  })();
+</script>
 <title>ALEXANDER PATERSON-JONES</title>
 <meta name="description" content="Artist · Designer · Photographer">
 <meta property="og:type" content="website">
@@ -1123,9 +1143,153 @@
     .video-modal-close:hover{ color: var(--power-orange); }
   }
 
+  /* ---------- Intro ---------- */
+
+  #intro{ display: none; }
+
+  html.intro-run #intro{
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+  }
+
+  /* The real header and footer wait offstage; the intro's own stand-in mark plays their part,
+     then they fade in underneath it. Home's tiles are held back until they're placed. */
+  header, footer{ transition: opacity 0.5s ease; }
+
+  html.intro-run:not(.intro-chrome-on) header,
+  html.intro-run:not(.intro-chrome-on) footer{ opacity: 0; }
+
+  html.intro-run .canvas[data-canvas="home"] .tile:not(.placed){ visibility: hidden; }
+
+  /* Tiles wait a little below their spot and slide up into it when placed, as if the rising
+     header were pushing them there. (`translate` is separate from the inline scale transform.) */
+  html.intro-run .canvas[data-canvas="home"] .tile{ translate: 0 70px; }
+  html.intro-run .canvas[data-canvas="home"] .tile.placed{
+    translate: 0 0;
+    transition: transform 0.2s ease-out, translate 0.7s cubic-bezier(0.2, 0.7, 0.3, 1);
+  }
+
+  /* Keep an already-loaded image blurred until its tile is placed, so the focus pull plays
+     at placement instead of unseen while it was hidden. */
+  html.intro-run .canvas[data-canvas="home"] .tile:not(.placed) .tile-media img.loaded,
+  html.intro-run .canvas[data-canvas="home"] .tile:not(.placed) .tile-media video.loaded{
+    opacity: 0;
+    filter: blur(16px);
+  }
+
+  /* Everything starts at the middle of the screen -- the mark dead center, the squares flush
+     right -- and only ends at the header: adding .up sends both straight up. JS takes over the
+     mark's horizontal position (left, in px) once it's measured the fonts. */
+  .i-brand, .i-chips{
+    position: fixed;
+    transition: top 0.6s cubic-bezier(0.65, 0, 0.35, 1), left var(--ldur, 0.5s) cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .i-brand{
+    left: 50%;
+    transform: translateX(-50%);
+    top: calc(50% - 15.5px);
+    height: 31px;
+    display: flex;
+    align-items: center;
+  }
+  #intro.up .i-brand{ top: 0; }
+
+  .i-mark{
+    display: flex;
+    height: 1.3em;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 1.35rem;
+    font-weight: 700;
+    line-height: 1.3;
+    text-transform: uppercase;
+    letter-spacing: -0.03em;
+    white-space: pre;
+    color: var(--ink);
+    transition: width var(--wdur, 0.4s) cubic-bezier(0.4, 0, 0.2, 1), font-size var(--wdur, 0.4s) cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .i-mark .i-t{ flex: 1; min-width: 0; overflow: hidden; }
+  .i-mark .i-b:first-child{ margin-left: -0.09em; }
+
+  /* The squares sit left-anchored in fixed slots, each scaling in/out from its left edge, so
+     they arrive and leave one at a time without the rest of the row shifting. */
+  .i-chips{ right: 0; top: calc(50% - 16px); height: 32px; display: flex; }
+  #intro.up .i-chips{ top: -0.5px; }
+  .i-chip{
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+    white-space: nowrap;
+    width: 32px;
+    height: 32px;
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.14s cubic-bezier(0.4, 0, 0.2, 1), width 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .i-chip.in{ transform: scaleX(1); }
+
+  /* Once landed, the first square opens to the real HOME chip's width and label, exactly as the
+     header's own does, so the handoff to the real header shows no change. */
+  .i-chip.open{ width: 132px; }
+  .i-label{
+    font-size: 0.85rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: #F2F0EA;
+    padding-left: 11px;
+    padding-right: 15px;
+    opacity: 0;
+    transform: translateX(-4px);
+    transition: opacity 0.16s ease, transform 0.16s ease;
+  }
+  .i-chip.open .i-label{ opacity: 1; transform: translateX(0); }
+
+  /* Touch devices have no HOME chip for the squares to open into, so they're left out entirely. */
+  @media (max-width: 640px), (hover: none), (pointer: coarse){
+    .i-chips{ display: none; }
+  }
+
+  .i-frame{
+    position: fixed;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    display: none;
+  }
+  .i-frame.on{ display: block; }
+  .i-frame img{
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    visibility: hidden;
+  }
+  .i-frame img.show{ visibility: visible; }
+
 </style>
 </head>
 <body>
+
+<!-- Intro overlay: hidden unless the early script in <head> adds .intro-run to <html>. It's a
+     see-through layer holding only a stand-in header mark, the squares and the flashing frame,
+     so the Home page and its background crosses stay visible underneath. -->
+<div id="intro" aria-hidden="true">
+  <div class="i-chips">
+    <span class="i-chip" style="background:#171613;"><span class="i-label">Home</span></span>
+    <span class="i-chip" style="background:#4B4A46;"></span>
+    <span class="i-chip" style="background:#767268;"></span>
+    <span class="i-chip" style="background:#C9C6BC;"></span>
+  </div>
+  <div class="i-brand">
+    <div class="i-mark"><span class="i-b">[</span><span class="i-t">-</span><span class="i-b">]</span></div>
+  </div>
+  <div class="i-frame"></div>
+</div>
 
 <h1 class="sr-only">Alexander Paterson-Jones — Designer &amp; Photographer</h1>
 
@@ -3174,6 +3338,228 @@
     if(wrap.dataset.wrap === 'home') attachScaleEffect(wrap);
   });
   setRoute();
+
+  // ---------- Intro ----------
+  // Sets the table for the site. Everything starts at mid-screen and ends at the header:
+  //   1. [-] alone, dead center.
+  //   2. The name expands out from the center while the color squares arrive on the right,
+  //      one at a time.
+  //   3. Covers cycle between the brackets, in the exact span the name just filled.
+  //   4. The empty brackets slide to the left edge (the spot below the header mark).
+  //   5. They close back up to [-].
+  //   6. Mark and squares rise straight up to the header, pushing Home's tiles up into place.
+  // Plays once per session (see the early script in <head>); click, tap or press a key to skip.
+  (function(){
+    const root = document.documentElement;
+    const intro = document.getElementById('intro');
+    if(!intro || !root.classList.contains('intro-run')) return;
+
+    // All timings in ms. Tune here.
+    const T = {
+      begin: 650,      // [-] sits alone before anything moves
+      squareIn: 120,   // gap between each square arriving
+      type: 28,        // per letter as the name expands
+      hold: 300,       // name sits before the covers start
+      flash: 70,       // how long each cover shows -- hard cuts, no fades
+      beat: 200,       // empty brackets pause after the last cover
+      slide: 650,      // empty brackets slide to the left edge
+      close: 520,      // brackets close back to [-]
+      rise: 750,       // mark + squares go straight up to the header
+      open: 300,       // HOME square opens once it lands
+      place: 55,       // gap between each Home tile being pushed into place
+      settle: 850      // each tile's slide into place
+    };
+    if(/[?&]intro=slow/.test(location.search)) Object.keys(T).forEach(k => { T[k] *= 4; });
+    const FLASH_COUNT = 12;
+    const FULL = 'Alexander Paterson-Jones';
+    const ANCHOR = 18; // the "-" in Paterson-Jones, same one the header's hover effect keeps in place
+
+    const brand = intro.querySelector('.i-brand');
+    const mark = intro.querySelector('.i-mark');
+    const txt = mark.querySelector('.i-t');
+    const frame = intro.querySelector('.i-frame');
+    const touch = matchMedia('(max-width: 640px), (hover: none), (pointer: coarse)').matches;
+    const squares = touch ? [] : Array.from(intro.querySelectorAll('.i-chip'));
+
+    let skipped = false;
+    let release;
+    const cancelled = new Promise(r => { release = r; });
+    const sleep = ms => Promise.race([new Promise(r => setTimeout(r, ms)), cancelled]);
+    const phase = name => { intro.dataset.phase = name; };
+    const skip = () => { if(skipped) return; skipped = true; release(); };
+    const dur = (name, ms) => intro.style.setProperty(name, ms + 'ms');
+
+    intro.addEventListener('pointerdown', skip);
+    window.addEventListener('keydown', skip);
+    window.addEventListener('hashchange', skip);
+
+    // Cover thumbnails (images/intro/<id>.jpg) start downloading right away so they're ready
+    // by the time the cycle starts; any that fail are just left out.
+    const loaded = [];
+    const picks = works.filter(w => w.category !== 'hidden').sort(() => Math.random() - 0.5).slice(0, FLASH_COUNT + 4);
+    const loading = Promise.all(picks.map(w => new Promise(res => {
+      const im = new Image();
+      im.alt = '';
+      im.onerror = () => res();
+      im.onload = () => { (im.decode ? im.decode() : Promise.resolve()).catch(() => {}).then(() => { loaded.push(im); res(); }); };
+      im.src = 'images/intro/' + w.id + '.jpg';
+    })));
+
+    const fontsReady = Promise.race([
+      document.fonts && document.fonts.load ? document.fonts.load('700 21.6px "IBM Plex Mono"') : Promise.resolve(),
+      new Promise(r => setTimeout(r, 1500))
+    ]);
+
+    function charWidth(){
+      const probe = mark.cloneNode(false);
+      probe.style.cssText = 'position:absolute;visibility:hidden;width:auto;';
+      probe.textContent = 'M'.repeat(20);
+      brand.appendChild(probe);
+      const w = probe.getBoundingClientRect().width / 20;
+      probe.remove();
+      return w;
+    }
+
+    const fillers = [];
+    for(let i = 0; i < FULL.length; i++) if(i !== ANCHOR) fillers.push(i);
+    function render(revealed){
+      let out = '';
+      for(let i = 0; i < FULL.length; i++) if(revealed.has(i)) out += FULL[i];
+      txt.textContent = out;
+    }
+
+    async function cycle(cw, W){
+      await Promise.race([loading, sleep(1200)]);
+      const imgs = loaded.slice(0, FLASH_COUNT);
+      if(skipped || !imgs.length) return;
+      const h = Math.max(200, Math.min(380, window.innerHeight * 0.4));
+      frame.style.height = h + 'px';
+      frame.style.width = Math.min(h * 0.8, W - cw * 4) + 'px';
+      imgs.forEach(im => frame.appendChild(im));
+      frame.classList.add('on');
+      for(const im of imgs){
+        if(skipped) break;
+        im.classList.add('show');
+        await sleep(T.flash);
+        im.classList.remove('show');
+      }
+      frame.classList.remove('on');
+    }
+
+    // Tiles on screen get pushed up into place, top of the page first, so it reads as the
+    // rising header carrying them. Off-screen tiles are revealed when the intro ends.
+    function placeTiles(){
+      const vw = window.innerWidth, vh = window.innerHeight;
+      const onScreen = Array.from(document.querySelectorAll('.canvas[data-canvas="home"] .tile')).map(t => ({ t, r: t.getBoundingClientRect() }))
+        .filter(({ r }) => r.right > 0 && r.left < vw && r.bottom > 0 && r.top < vh)
+        .sort((a, b) => (a.r.top + Math.random() * 90) - (b.r.top + Math.random() * 90));
+      return Promise.all(onScreen.map(async ({ t }, i) => {
+        await sleep(i * T.place);
+        if(!skipped) t.classList.add('placed');
+      }));
+    }
+
+    function finish(instant){
+      try{ sessionStorage.setItem('introSeen', '1'); }catch(e){}
+      const done = () => { root.classList.remove('intro-run', 'intro-chrome-on'); intro.remove(); };
+      if(instant){ done(); return; }
+      intro.style.transition = 'opacity 0.3s ease';
+      intro.style.opacity = '0';
+      setTimeout(done, 320);
+    }
+
+    async function run(){
+      await fontsReady;
+      if(skipped) return;
+      const vw = window.innerWidth;
+      const w3 = mark.getBoundingClientRect().width;   // "[-]" as it sits at first paint
+      const cw0 = charWidth();
+      // The opened mark ("[" + full name + "]") is ~26 characters wide; on very narrow screens
+      // it's shrunk just while it's open so the brackets never run off the edges.
+      const fit = Math.min(1, (vw - 40) / (cw0 * (FULL.length + 2)));
+      const baseFont = parseFloat(getComputedStyle(mark).fontSize);
+      const cw = cw0 * fit;
+      const W = cw * (FULL.length + 2);                // "[" + name + "]"
+      const homeLeft = document.querySelector('.brand').getBoundingClientRect().left;
+
+      // Hand the mark's position from CSS centering to explicit pixels (no visible change).
+      brand.style.transition = 'none';
+      brand.style.transform = 'none';
+      brand.style.left = ((vw - w3) / 2) + 'px';
+      mark.style.width = w3 + 'px';
+      brand.getBoundingClientRect();
+      brand.style.transition = '';
+
+      phase('begin');
+      await sleep(T.begin);
+      if(skipped) return;
+
+      // 2. The name expands from the center while the squares arrive one at a time.
+      phase('expand');
+      const expandMs = fillers.length * T.type + 60;
+      dur('--wdur', expandMs);
+      dur('--ldur', expandMs);
+      if(fit < 1) mark.style.fontSize = (baseFont * fit) + 'px';
+      mark.style.width = W + 'px';
+      brand.style.left = ((vw - W) / 2) + 'px';
+      const squaresIn = (async () => {
+        for(const sq of squares){
+          if(skipped) return;
+          sq.classList.add('in');
+          await sleep(T.squareIn);
+        }
+      })();
+      const revealed = new Set([ANCHOR]);
+      render(revealed);
+      for(const i of fillers){
+        if(skipped) return;
+        revealed.add(i);
+        render(revealed);
+        await sleep(T.type);
+      }
+      await squaresIn;
+      await sleep(T.hold);
+      if(skipped) return;
+
+      // 3. Covers cycle between the brackets, in the span the name just filled.
+      phase('cycle');
+      txt.textContent = '';
+      await cycle(cw, W);
+      await sleep(T.beat);
+      if(skipped) return;
+
+      // 4. The empty brackets slide to the left edge, still at mid-screen.
+      phase('slide');
+      dur('--ldur', T.slide);
+      brand.style.left = homeLeft + 'px';
+      await sleep(T.slide);
+      if(skipped) return;
+
+      // 5. They close back up to [-].
+      phase('close');
+      txt.textContent = '-';
+      dur('--wdur', T.close);
+      mark.style.fontSize = '';
+      mark.style.width = w3 + 'px';
+      await sleep(T.close + 80);
+      if(skipped) return;
+
+      // 6. Mark and squares rise straight up, pushing the tiles into place.
+      phase('place');
+      intro.classList.add('up');
+      const placing = placeTiles();
+      await sleep(T.rise);
+      if(squares[0]){
+        squares[0].classList.add('open');
+        await sleep(T.open);
+      }
+      root.classList.add('intro-chrome-on');
+      await placing;
+      await sleep(T.settle);
+    }
+
+    run().catch(() => { skipped = true; }).then(() => finish(skipped));
+  })();
 </script>
 
 </body>
