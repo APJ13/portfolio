@@ -1219,7 +1219,7 @@
     transition: width var(--wdur, 0.4s) cubic-bezier(0.4, 0, 0.2, 1), font-size var(--wdur, 0.4s) cubic-bezier(0.4, 0, 0.2, 1);
   }
 
-  .i-mark .i-t{ flex: none; }
+  .i-mark .i-t{ flex: 1 0 auto; } /* takes up the slack, so the right bracket stays at the far end when the text is cleared */
   .i-mark .i-b:first-child{ margin-left: -0.09em; }
 
   /* The squares sit left-anchored in fixed slots, each scaling in/out from its left edge, so
